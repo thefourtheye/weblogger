@@ -31,9 +31,15 @@ const CustomTreeItem = styled(TreeItem)(({ theme }) => ({
   }
 }));
 
+function slashTrimmer(data) {
+  return data.replace(/\/+/g, '/');
+}
+
 function createTreeItem(files) {
   return Object.entries(files || {}).map(([key, value]) => {
-    const path = value.properties.parentPath + '/' + value.properties.name;
+    const path = slashTrimmer(
+      value.properties.parentPath + '/' + value.properties.name
+    );
     return (
       <CustomTreeItem
         key={path}
@@ -47,7 +53,6 @@ function createTreeItem(files) {
 }
 
 export default function FileBrowser({
-  shouldChooseFile,
   currentFile,
   workingDir,
   files,
@@ -55,6 +60,18 @@ export default function FileBrowser({
 }) {
   const [selectedFile, setSelectedFile] = useState(
     (currentFile || '').replace(workingDir, '')
+  );
+  const [expandedItems, setExpandedItems] = useState(
+    selectedFile
+      .split('/')
+      .reduce(
+        (acc, current) => {
+          acc.push(acc[acc.length - 1] + '/' + current);
+          return acc;
+        },
+        [workingDir]
+      )
+      .map((path) => slashTrimmer(path))
   );
 
   async function isItemAFile(itemId) {
@@ -68,20 +85,23 @@ export default function FileBrowser({
 
   function onSubmit(e) {
     if (selectedFile) {
-      console.log('File Selection Complete', workingDir, selectedFile);
       onSelection(workingDir + selectedFile);
     }
     e.preventDefault();
   }
 
+  function createFile() {}
+
   function onCancel() {
     onSelection(workingDir + selectedFile);
   }
-
+  const handleExpandedItemsChange = (event, itemIds) => {
+    setExpandedItems(itemIds);
+  };
   return (
     <Dialog
       sx={{ '& .MuiDialog-paper': { width: '100%' } }}
-      maxWidth="xs"
+      maxWidth="md"
       open={true}
       keepMounted
     >
@@ -96,8 +116,9 @@ export default function FileBrowser({
                 collapseIcon: FolderIcon
               }}
               sx={{ overflowX: 'hidden', flexGrow: 1 }}
-              selectedItems={[workingDir + currentFile]}
-              defaultSelectedItems={[workingDir + currentFile]}
+              selectedItems={[workingDir + selectedFile]}
+              expandedItems={expandedItems}
+              onExpandedItemsChange={handleExpandedItemsChange}
               onItemSelectionToggle={onItemSelectionToggle}
               defaultValue={''}
             >
@@ -115,6 +136,7 @@ export default function FileBrowser({
         {selectedFile && (
           <Typography>Selected File is {selectedFile}</Typography>
         )}
+        <Button onClick={createFile}>Create Post File</Button>
         <Button onClick={onSubmit}>Open</Button>
         {selectedFile && <Button onClick={onSubmit}>Cancel</Button>}
       </DialogActions>

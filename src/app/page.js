@@ -8,25 +8,25 @@ export default function Home() {
   const [workingDir, setWorkingDirActually] = useState('');
   const [currentFile, setCurrentFileActually] = useState('');
   const [shouldChooseFile, setShouldChooseFile] = useState(false);
+  const [shouldChooseDir, setShouldChooseDir] = useState(false);
+  console.log(workingDir, currentFile, shouldChooseFile, shouldChooseDir);
 
   function setCurrentFile(file) {
     setCurrentFileActually(file);
+    setShouldChooseDir(false);
     setShouldChooseFile(false);
   }
 
   function setWorkingDir(dir) {
-    setWorkingDirActually(dir.replace(/\/*$/, '') + '/');
+    setShouldChooseDir(false);
+    setShouldChooseFile(true);
+    setWorkingDirActually(dir);
   }
-
-  // useEffect(() => {
-  //   if (shouldChooseFile) {
-  //     setShouldChooseFile(false);
-  //   }
-  // }, [shouldChooseFile]);
 
   useEffect(() => {
     if (currentFile) {
       localStorage.setItem('currentFile', currentFile);
+      setShouldChooseFile(false);
       return;
     }
     const currentFileFromLocalStorage = localStorage.getItem('currentFile');
@@ -46,45 +46,40 @@ export default function Home() {
     }
   }, [workingDir]);
 
-  useEffect(() => {
-    /** @param {KeyboardEvent} [e] */
-    function handleKeyDown(e) {
-      console.log(e);
-      if (e.ctrlKey && e.key === 'o') {
-        setShouldChooseFile(true);
-        return;
-      }
-      if (e.key === "Escape") {
-        setShouldChooseFile(false);
-        return;
-      }
+  function handleKeyDown(e) {
+    if (!e.ctrlKey || (e.key !== 'd' && e.key !== 'f')) {
+      return;
     }
+    setShouldChooseDir(e.key === 'd');
+    setShouldChooseFile(e.key === 'f');
+  }
 
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Don't forget to clean up
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown, false);
     return function cleanup() {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown, false);
     };
   }, []);
 
   return (
-    (!workingDir && (
+    ((!workingDir || shouldChooseDir) && (
       <WorkingDirectorySelector
+        currentWorkingDir={workingDir}
         onSelection={setWorkingDir}
       ></WorkingDirectorySelector>
     )) ||
     ((!currentFile || shouldChooseFile) && (
       <FileSelector
-        currentFile={currentFile}
         workingDir={workingDir}
+        currentFile={currentFile}
         onSelection={setCurrentFile}
-        shouldChooseFile={shouldChooseFile}
       ></FileSelector>
     )) || (
       <Editor
         workingDir={workingDir}
         currentFile={currentFile}
+        setShouldChooseDir={setShouldChooseDir}
+        setShouldChooseFile={setShouldChooseFile}
       ></Editor>
     )
   );

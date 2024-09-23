@@ -1,11 +1,22 @@
 'use client';
 import { readFile } from 'src/app/js/fs';
 import Box from '@mui/material/Box';
-import { TextField } from '@mui/material';
+import { TextField, Toolbar } from '@mui/material';
+import { Chip } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import FolderIcon from '@mui/icons-material/Folder';
+import FileIcon from '@mui/icons-material/FilePresent';
+import AppBar from '@mui/material/AppBar';
 
-export default function Editor({ workingDir, currentFile }) {
+export default function Editor({
+  workingDir,
+  currentFile,
+  setShouldChooseDir,
+  setShouldChooseFile
+}) {
   const [content, setContent] = useState('');
 
   useEffect(() => {
@@ -28,34 +39,50 @@ export default function Editor({ workingDir, currentFile }) {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        alignContent: 'center'
+        alignContent: 'center',
+        rowGap: '15px'
       }}
     >
-      <Box>
-        Working Dir: {workingDir} <br />
-        Current File: {currentFile.replace(workingDir, '')} <br />
-        <br />
-      </Box>
-      <Box sx={{ flex: '1', overflow: 'auto' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Chip
+            label={workingDir}
+            onClick={() => setShouldChooseDir(true)}
+            icon={<FolderIcon />}
+          >
+            Hello
+          </Chip>
+          <Chip
+            label={currentFile.replace(workingDir, '')}
+            onClick={() => setShouldChooseFile(true)}
+            icon={<FileIcon />}
+          />
+        </Toolbar>
+      </AppBar>
+      <Box sx={{ flex: '1', overflow: 'auto', padding: '6px' }}>
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'row',
             height: '100%',
-            columnGap: '9px'
+            columnGap: '15px'
           }}
         >
-          <Box sx={{ flex: '1' }}></Box>
-          <Box sx={{ flex: '3' }}>
+          <Box sx={{ flex: '3', overflow: 'auto' }}>
             <TextField
               multiline
               onChange={onChange}
-              sx={{ width: '100%' }}
+              sx={{ width: '100%', height: '100%' }}
               value={content}
             />
           </Box>
           <Box sx={{ flex: '3', overflow: 'auto' }}>
-            <Markdown>{content}</Markdown>
+            <Markdown
+              rehypePlugins={[rehypeRaw]}
+              remarkPlugins={[remarkGfm]}
+            >
+              {content}
+            </Markdown>
           </Box>
         </Box>
       </Box>

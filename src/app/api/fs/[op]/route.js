@@ -9,62 +9,76 @@ export async function GET(request, { params }) {
   const searchParams = request.nextUrl.searchParams;
   const path = searchParams.get('path');
 
+  async function handleSyncResponse(ctx, fn) {
+    try {
+      return Response.json({
+        ...ctx,
+        status: 'SUCCESS',
+        result: fn()
+      });
+    } catch (err) {
+      return Response.json({
+        ...ctx,
+        status: 'FAILURE',
+        result: err
+      });
+    }
+  }
+
+  async function handleAsyncResponse(ctx, fn) {
+    try {
+      return Response.json({
+        ...ctx,
+        status: 'SUCCESS',
+        result: await fn(ctx.payload.path)
+      });
+    } catch (err) {
+      return Response.json({
+        ...ctx,
+        status: 'FAILURE',
+        result: err
+      });
+    }
+  }
+
   const ctx = { reqId, op, payload: { path } };
   try {
     switch (op) {
       case 'home':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: require('os').homedir()
-        });
+        return handleSyncResponse(ctx, () => require('os').homedir());
       case 'isReadable':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await isReadable(path)
-        });
+        return await handleAsyncResponse(ctx, isReadable);
       case 'isWritable':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await isWritable(path)
-        });
+        return await handleAsyncResponse(ctx, isWritable);
       case 'isDir':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await isDir(path)
-        });
+        return await handleAsyncResponse(ctx, isDir);
       case 'isFile':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await isFile(path)
-        });
+        return await handleAsyncResponse(ctx, isFile);
       case 'readFile':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await read(path)
-        });
+        return await handleAsyncResponse(ctx, read);
       case 'list':
-        return Response.json({
-          ...ctx,
-          status: 'SUCCESS',
-          result: await listDir(path)
-        });
+        return await handleAsyncResponse(ctx, listDir);
       default:
         throw new Error('Unknown FS Operation [' + op + ']');
     }
   } catch (e) {
-    const resp = { ...ctx, error: e, status: 'FAILED' };
+    const resp = { ...ctx, error: e, status: 'FAILURE' };
     logger.error(resp);
     return Response.json(resp, { status: 500 });
   }
 }
 
 async function isReadable(path) {
+  try {
+    await access(path, fs.constants.R_OK);
+    return true;
+  } catch (e) {
+    logger.error({ error: e, path, op: 'isReadable' });
+    return false;
+  }
+}
+
+async function exists(path) {
   try {
     await access(path, fs.constants.R_OK);
     return true;
@@ -84,9 +98,18 @@ async function isWritable(path) {
   }
 }
 
+async function getStat(path) {
+  try {
+    return await stat(path);
+  } catch (e) {
+    logger.error({ error: e, path, op: 'stat' });
+    return false;
+  }
+}
+
 async function isDir(path) {
   try {
-    return (await stat(path)).isDirectory();
+    return (await getStat(path)).isDirectory();
   } catch (e) {
     logger.error({ error: e, path, op: 'isDir' });
     return false;
@@ -95,7 +118,7 @@ async function isDir(path) {
 
 async function isFile(path) {
   try {
-    return (await stat(path)).isFile();
+    return (await getStat(path)).isFile();
   } catch (e) {
     logger.error({ error: e, path, op: 'isFile' });
     return false;
@@ -129,7 +152,9 @@ async function listDir(path) {
     return grouping;
   } catch (e) {
     logger.error({ error: e, path, op: 'listDir' });
-    return [];
+    throw Error(
+      'Failed to List Directory [' + path + '] because of [' + e + ']'
+    );
   }
 }
 

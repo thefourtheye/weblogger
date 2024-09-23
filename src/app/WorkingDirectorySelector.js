@@ -9,8 +9,11 @@ import Box from '@mui/material/Box';
 import { TextField } from '@mui/material';
 import { home, isDir, isReadable } from 'src/app/js/fs';
 
-export default function WorkingDirectorySelector({ onSelection }) {
-  const [value, setValue] = React.useState('');
+export default function WorkingDirectorySelector({
+  currentWorkingDir,
+  onSelection
+}) {
+  const [value, setValue] = React.useState(currentWorkingDir);
   const [helperText, setHelperText] = React.useState('');
 
   useEffect(() => {
@@ -24,6 +27,10 @@ export default function WorkingDirectorySelector({ onSelection }) {
           setHelperText("Directory '" + value + "' is not Readable");
           return;
         }
+        if (!(await isDir(value + '/posts'))) {
+          setHelperText("'posts' Sub Directory does not exist");
+          return;
+        }
         setHelperText('');
       })();
       return;
@@ -35,7 +42,6 @@ export default function WorkingDirectorySelector({ onSelection }) {
 
   function handleEntering() {}
   function handleSelection() {
-    console.log(helperText);
     if (!helperText) {
       onSelection(value);
     }
