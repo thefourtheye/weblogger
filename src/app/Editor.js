@@ -1,14 +1,11 @@
 'use client';
-import { readFile } from 'src/app/js/fs';
+import { readFile, writeFile } from 'src/app/js/fs';
 import Box from '@mui/material/Box';
 import { TextField, Toolbar } from '@mui/material';
-import { Chip } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import FolderIcon from '@mui/icons-material/Folder';
-import FileIcon from '@mui/icons-material/FilePresent';
 import AppBar from '@mui/material/AppBar';
 
 export default function Editor({
@@ -18,19 +15,40 @@ export default function Editor({
   setShouldChooseFile
 }) {
   const [content, setContent] = useState('');
+  const [buffer, setBuffer] = useState(content);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (!e.ctrlKey || e.key !== 's') {
+        return;
+      }
+      (async () => {
+        console.log(`Writing ${buffer} to File ${currentFile}`);
+        const response = await writeFile(currentFile, buffer);
+        if (response.success) {
+          setContent(buffer);
+        } else {
+        }
+      })();
+    }
+
+    document.addEventListener('keydown', handleKeyDown, false);
+    return function cleanup() {
+      document.removeEventListener('keydown', handleKeyDown, false);
+    };
+  }, [buffer, currentFile]);
 
   useEffect(() => {
     if (!content) {
       (async () => {
         const result = await readFile(currentFile);
-        console.log(currentFile, result);
         setContent(result);
       })();
     }
   }, [content, currentFile]);
 
   function onChange(e) {
-    setContent(e.target.value);
+    setBuffer(e.target.value);
   }
 
   return (
@@ -45,18 +63,14 @@ export default function Editor({
     >
       <AppBar position="static">
         <Toolbar>
-          <Chip
-            label={workingDir}
-            onClick={() => setShouldChooseDir(true)}
-            icon={<FolderIcon />}
+          <Box
+            sx={{ display: 'flex', flexDirection: 'column', rowGap: '10px' }}
           >
-            Hello
-          </Chip>
-          <Chip
-            label={currentFile.replace(workingDir, '')}
-            onClick={() => setShouldChooseFile(true)}
-            icon={<FileIcon />}
-          />
+            <h2>
+              <code>{workingDir}</code>
+              <code>{currentFile.replace(workingDir, '')}</code>
+            </h2>
+          </Box>
         </Toolbar>
       </AppBar>
       <Box sx={{ flex: '1', overflow: 'auto', padding: '6px' }}>
@@ -73,7 +87,7 @@ export default function Editor({
               multiline
               onChange={onChange}
               sx={{ width: '100%', height: '100%' }}
-              value={content}
+              value={buffer}
             />
           </Box>
           <Box sx={{ flex: '3', overflow: 'auto' }}>
@@ -81,14 +95,13 @@ export default function Editor({
               rehypePlugins={[rehypeRaw]}
               remarkPlugins={[remarkGfm]}
             >
-              {content}
+              {buffer}
             </Markdown>
           </Box>
         </Box>
       </Box>
       <Box>
         <h2>Footer</h2>
-        <br />
       </Box>
     </Box>
   );

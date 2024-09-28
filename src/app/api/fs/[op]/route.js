@@ -1,45 +1,64 @@
-import { access, readdir, readFile, stat } from 'node:fs/promises';
+import { access, readdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'node:fs';
 import logger from '@/app/api/commons/logger';
+
+async function handleSyncResponse(ctx, fn) {
+  try {
+    return Response.json({
+      ...ctx,
+      success: true,
+      result: fn()
+    });
+  } catch (err) {
+    return Response.json({
+      ...ctx,
+      result: err
+    });
+  }
+}
+
+async function handleAsyncResponse(ctx, fn) {
+  try {
+    return Response.json({
+      ...ctx,
+      success: true,
+      result: await fn(ctx.payload)
+    });
+  } catch (err) {
+    return Response.json({
+      ...ctx,
+      result: err
+    });
+  }
+}
+
+export async function POST(request, { params }) {
+  const reqId = uuidv4();
+  const op = params.op;
+  const searchParams = request.nextUrl.searchParams;
+  const path = searchParams.get('path');
+  const body = await request.json();
+  const ctx = { reqId, op, payload: { path, body } };
+  try {
+    switch (op) {
+      case 'writeFile':
+        return await handleAsyncResponse(ctx, write);
+      default:
+        throw new Error('Unknown FS Operation [' + op + ']');
+    }
+  } catch (e) {
+    const resp = { ...ctx, error: e, status: 'FAILURE' };
+    logger.error(resp);
+    return Response.json(resp, { status: 500 });
+  }
+}
 
 export async function GET(request, { params }) {
   const reqId = uuidv4();
   const op = params.op;
   const searchParams = request.nextUrl.searchParams;
   const path = searchParams.get('path');
-
-  async function handleSyncResponse(ctx, fn) {
-    try {
-      return Response.json({
-        ...ctx,
-        status: 'SUCCESS',
-        result: fn()
-      });
-    } catch (err) {
-      return Response.json({
-        ...ctx,
-        status: 'FAILURE',
-        result: err
-      });
-    }
-  }
-
-  async function handleAsyncResponse(ctx, fn) {
-    try {
-      return Response.json({
-        ...ctx,
-        status: 'SUCCESS',
-        result: await fn(ctx.payload.path)
-      });
-    } catch (err) {
-      return Response.json({
-        ...ctx,
-        status: 'FAILURE',
-        result: err
-      });
-    }
-  }
 
   const ctx = { reqId, op, payload: { path } };
   try {
@@ -62,13 +81,13 @@ export async function GET(request, { params }) {
         throw new Error('Unknown FS Operation [' + op + ']');
     }
   } catch (e) {
-    const resp = { ...ctx, error: e, status: 'FAILURE' };
+    const resp = { ...ctx, result: e };
     logger.error(resp);
     return Response.json(resp, { status: 500 });
   }
 }
 
-async function isReadable(path) {
+async function isReadable({ path }) {
   try {
     await access(path, fs.constants.R_OK);
     return true;
@@ -78,17 +97,7 @@ async function isReadable(path) {
   }
 }
 
-async function exists(path) {
-  try {
-    await access(path, fs.constants.R_OK);
-    return true;
-  } catch (e) {
-    logger.error({ error: e, path, op: 'isReadable' });
-    return false;
-  }
-}
-
-async function isWritable(path) {
+async function isWritable({ path }) {
   try {
     await access(path, fs.constants.R_OK | fs.constants.W_OK);
     return true;
@@ -98,7 +107,7 @@ async function isWritable(path) {
   }
 }
 
-async function getStat(path) {
+async function getStat({ path }) {
   try {
     return await stat(path);
   } catch (e) {
@@ -107,7 +116,7 @@ async function getStat(path) {
   }
 }
 
-async function isDir(path) {
+async function isDir({ path }) {
   try {
     return (await getStat(path)).isDirectory();
   } catch (e) {
@@ -116,7 +125,7 @@ async function isDir(path) {
   }
 }
 
-async function isFile(path) {
+async function isFile({ path }) {
   try {
     return (await getStat(path)).isFile();
   } catch (e) {
@@ -125,7 +134,7 @@ async function isFile(path) {
   }
 }
 
-async function listDir(path) {
+async function listDir({ path }) {
   try {
     const files = await readdir(path, { withFileTypes: true, recursive: true });
     const mappedFiles = files.map((file) => ({
@@ -158,11 +167,20 @@ async function listDir(path) {
   }
 }
 
-async function read(path) {
+async function read({ path }) {
   try {
     return await readFile(path, { encoding: 'utf8' });
   } catch (e) {
     logger.error({ error: e, path, op: 'read' });
+    return false;
+  }
+}
+
+async function write({ path, body }) {
+  try {
+    return await writeFile(path, body, { encoding: 'utf8' });
+  } catch (e) {
+    logger.error({ error: e, path, op: 'write' });
     return false;
   }
 }
