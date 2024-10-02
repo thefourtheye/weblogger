@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { isFile } from 'src/app/js/fs';
+import { callApi } from 'src/app/js/fs';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import FolderIcon from '@mui/icons-material/Folder';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
@@ -75,12 +75,13 @@ export default function FileBrowser({
   );
 
   async function isItemAFile(itemId) {
-    return await isFile(itemId);
+    return await callApi({ path: itemId, api: 'isFile' });
   }
 
   async function onItemSelectionToggle(e, itemId, isSelected) {
-    if (isSelected && (await isItemAFile(itemId)))
+    if (isSelected && (await isItemAFile(itemId))) {
       setSelectedFile(itemId.replace(workingDir, ''));
+    }
   }
 
   function onSubmit(e) {
@@ -95,6 +96,7 @@ export default function FileBrowser({
   function onCancel() {
     onSelection(workingDir + selectedFile);
   }
+
   const handleExpandedItemsChange = (event, itemIds) => {
     setExpandedItems(itemIds);
   };

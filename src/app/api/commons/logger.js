@@ -1,5 +1,5 @@
-const { createLogger, format, transports } = require('winston');
-const { combine, timestamp, label, prettyPrint, splat, json } = format;
+const { format, transports } = require('winston');
+const { combine, timestamp, prettyPrint, splat, json } = format;
 const winston = require('winston');
 
 winston.configure({

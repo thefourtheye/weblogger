@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { list } from 'src/app/js/fs';
+import { callApi } from 'src/app/js/fs';
 import FileBrowser from '@/app/FileBrowser';
 
 export default function FileSelector({ currentFile, workingDir, onSelection }) {
   const [files, setFiles] = useState([]);
   useEffect(() => {
     (async () => {
-      setFiles(await list(workingDir));
+      setFiles(await callApi({ path: workingDir, api: 'list' }));
     })();
   }, [workingDir]);
 

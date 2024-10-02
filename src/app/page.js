@@ -9,7 +9,6 @@ export default function Home() {
   const [currentFile, setCurrentFileActually] = useState('');
   const [shouldChooseFile, setShouldChooseFile] = useState(false);
   const [shouldChooseDir, setShouldChooseDir] = useState(false);
-  console.log(workingDir, currentFile, shouldChooseFile, shouldChooseDir);
 
   function setCurrentFile(file) {
     setCurrentFileActually(file);

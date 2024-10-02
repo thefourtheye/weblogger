@@ -7,7 +7,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Dialog from '@mui/material/Dialog';
 import Box from '@mui/material/Box';
 import { TextField } from '@mui/material';
-import { home, isDir, isReadable } from 'src/app/js/fs';
+import { callApi } from 'src/app/js/fs';
 
 export default function WorkingDirectorySelector({
   currentWorkingDir,
@@ -19,15 +19,15 @@ export default function WorkingDirectorySelector({
   useEffect(() => {
     if (value) {
       (async () => {
-        if (!(await isDir(value))) {
+        if (!(await callApi({ path: value, api: 'isDir' }))) {
           setHelperText("'" + value + "' is not a Directory");
           return;
         }
-        if (!(await isReadable(value))) {
+        if (!(await callApi({ path: value, api: 'isReadable' }))) {
           setHelperText("Directory '" + value + "' is not Readable");
           return;
         }
-        if (!(await isDir(value + '/posts'))) {
+        if (!(await callApi({ path: value + '/posts', api: 'isDir' }))) {
           setHelperText("'posts' Sub Directory does not exist");
           return;
         }
@@ -36,11 +36,12 @@ export default function WorkingDirectorySelector({
       return;
     }
     (async () => {
-      setValue(await home());
+      setValue(await callApi({ api: 'home' }));
     })();
   }, [value]);
 
   function handleEntering() {}
+
   function handleSelection() {
     if (!helperText) {
       onSelection(value);
