@@ -1,7 +1,7 @@
 export async function callApi({ path, data, api, method }) {
+  const apiPath = `/api/fs/${api}?path=${path || ''}`;
   try {
-    console.log(`Full API Path is [/api/fs/${api}?path=${path || ''}]`);
-    return await fetch(`/api/fs/${api}?path=${path || ''}`, {
+    return await fetch(apiPath, {
       method: method || 'GET',
       body: data && JSON.stringify(data),
       headers: {
@@ -14,21 +14,15 @@ export async function callApi({ path, data, api, method }) {
         if (res.success) {
           return res.result;
         }
-        throw res.result;
+        const error = Error(`${method} call to ${apiPath} Failed`, {
+          cause: res.result
+        });
+        throw Error(res.result);
       });
   } catch (err) {
-    return Promise.reject(
-      `Failed to make API Call [${getFailureString({ path, data, api, method, err })}]`
-    );
+    const error = Error(`Failed to make ${method} call to ${apiPath}`, {
+      cause: err
+    });
+    return Promise.reject(error);
   }
-}
-
-function getFailureString({ path, data, api, method, err }) {
-  return JSON.stringify({
-    path,
-    data,
-    api,
-    method,
-    err: err.toString()
-  });
 }

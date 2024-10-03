@@ -7,7 +7,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import AppBar from '@mui/material/AppBar';
-import SnackBar from './SnackBar';
+import { SnackBar, useSnackBar } from './SnackBar';
 
 export default function Editor({
   workingDir,
@@ -17,13 +17,19 @@ export default function Editor({
 }) {
   const [content, setContent] = useState('');
   const [buffer, setBuffer] = useState(content);
-  const [alert, setAlert] = useState({ severity: '', msg: '' });
+  const {
+    isSnackBarOpen,
+    snackBarMsg,
+    snackBarSeverity,
+    snackBarError,
+    hideSnackBar,
+    showSnackBar
+  } = useSnackBar();
 
   function saveBufferToFile() {
     (async () => {
-      setAlert({
-        msg: `Writing ${buffer} to File ${currentFile}`,
-        severity: 'info'
+      showSnackBar({
+        msg: `Writing [${buffer}] to File ${currentFile}`
       });
       try {
         await callApi({
@@ -33,16 +39,15 @@ export default function Editor({
         })
           .then(setContent)
           .catch((err) => {
-            setAlert({
-              msg: `Failed Writing to File ${currentFile}. Error: [${err} - ${err.message}]`,
-              severity: 'error'
+            showSnackBar({
+              msg: `Writing to File ${currentFile} Failed`,
+              error: err
             });
           });
       } catch (err) {
-        console.log('saveBufferToFile Err Handler', err);
-        setAlert({
-          msg: `Failed Writing to File ${currentFile}. Error: [${err} - ${err.message}]`,
-          severity: 'error'
+        showSnackBar({
+          msg: `Failed Writing to File ${currentFile}`,
+          error: err
         });
       }
     })();
@@ -63,15 +68,13 @@ export default function Editor({
   }, []);
 
   useEffect(() => {
-    setAlert({
-      msg: `Current Content [${content}]. Reading From ${currentFile}`,
-      severity: 'info'
+    showSnackBar({
+      msg: `Current Content [${content}]. Reading From ${currentFile}`
     });
     (async () => {
       const result = await callApi({ path: currentFile, api: 'readFile' });
-      setAlert({
-        msg: `Read Content [${content}] From ${currentFile}`,
-        severity: 'info'
+      showSnackBar({
+        msg: `Read Content [${content}] From ${currentFile}`
       });
       setContent(result);
       setBuffer(result);
@@ -137,9 +140,11 @@ export default function Editor({
         </Box>
       </Box>
       <SnackBar
-        msg={alert.msg}
-        severity={alert.severity}
-        open={!!alert.msg}
+        msg={snackBarMsg}
+        severity={snackBarSeverity}
+        open={isSnackBarOpen}
+        hideSnackBar={hideSnackBar}
+        snackBarError={snackBarError}
       ></SnackBar>
     </>
   );
