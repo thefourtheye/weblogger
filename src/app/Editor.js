@@ -17,6 +17,7 @@ export default function Editor({
 }) {
   const [content, setContent] = useState('');
   const [buffer, setBuffer] = useState(content);
+  const [preview, setPreview] = useState(false);
   const {
     isSnackBarOpen,
     snackBarMsg,
@@ -52,11 +53,17 @@ export default function Editor({
   }
 
   function handleKeyDown(e) {
-    if (!e.ctrlKey || e.key !== 's') {
+    if (!e.ctrlKey) {
       return;
     }
-
-    saveBufferToFile(buffer);
+    switch (e.key) {
+      case 's':
+        return saveBufferToFile(buffer);
+      case 't':
+        return setPreview(!preview);
+      default:
+        return;
+    }
   }
 
   useEffect(() => {
@@ -64,7 +71,7 @@ export default function Editor({
     return function cleanup() {
       document.removeEventListener('keydown', handleKeyDown, false);
     };
-  }, [buffer]);
+  }, [buffer, preview]);
 
   useEffect(() => {
     (async () => {
@@ -111,22 +118,26 @@ export default function Editor({
               columnGap: '15px'
             }}
           >
-            <Box sx={{ flex: '3', overflow: 'auto' }}>
-              <TextField
-                multiline
-                onChange={onChange}
-                sx={{ width: '100%', height: '100%' }}
-                value={buffer}
-              />
-            </Box>
-            <Box sx={{ flex: '3', overflow: 'auto' }}>
-              <Markdown
-                rehypePlugins={[rehypeRaw]}
-                remarkPlugins={[remarkGfm]}
-              >
-                {buffer}
-              </Markdown>
-            </Box>
+            {!preview && (
+              <Box sx={{ flex: '3', overflow: 'auto' }}>
+                <TextField
+                  multiline
+                  onChange={onChange}
+                  sx={{ width: '100%', height: '100%' }}
+                  value={buffer}
+                />
+              </Box>
+            )}
+            {preview && (
+              <Box sx={{ flex: '3', overflow: 'auto' }}>
+                <Markdown
+                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm]}
+                >
+                  {buffer}
+                </Markdown>
+              </Box>
+            )}
           </Box>
         </Box>
         <Box>
