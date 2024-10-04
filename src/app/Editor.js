@@ -26,56 +26,49 @@ export default function Editor({
     showSnackBar
   } = useSnackBar();
 
-  function saveBufferToFile() {
+  function saveBufferToFile(buffer) {
     (async () => {
-      showSnackBar({
-        msg: `Writing [${buffer}] to File ${currentFile}`
-      });
       try {
         await callApi({
           path: currentFile,
           data: buffer,
-          method: 'POST'
+          method: 'POST',
+          api: 'writeFile'
         })
-          .then(setContent)
+          .then(() => setContent(buffer))
           .catch((err) => {
             showSnackBar({
-              msg: `Writing to File ${currentFile} Failed`,
+              msg: `Writing [${buffer}] to File ${currentFile} Failed`,
               error: err
             });
           });
       } catch (err) {
         showSnackBar({
-          msg: `Failed Writing to File ${currentFile}`,
+          msg: `Failed Writing [${buffer}] to File ${currentFile}`,
           error: err
         });
       }
     })();
   }
 
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (!e.ctrlKey || e.key !== 's') {
-        return;
-      }
-      saveBufferToFile();
+  function handleKeyDown(e) {
+    if (!e.ctrlKey || e.key !== 's') {
+      return;
     }
 
+    saveBufferToFile(buffer);
+  }
+
+  useEffect(() => {
     document.addEventListener('keydown', handleKeyDown, false);
     return function cleanup() {
       document.removeEventListener('keydown', handleKeyDown, false);
     };
-  }, []);
+  }, [buffer]);
 
   useEffect(() => {
-    showSnackBar({
-      msg: `Current Content [${content}]. Reading From ${currentFile}`
-    });
     (async () => {
       const result = await callApi({ path: currentFile, api: 'readFile' });
-      showSnackBar({
-        msg: `Read Content [${content}] From ${currentFile}`
-      });
       setContent(result);
       setBuffer(result);
     })();
@@ -104,6 +97,7 @@ export default function Editor({
               <h2>
                 <code>{workingDir}</code>
                 <code>{currentFile.replace(workingDir, '')}</code>
+                <code>{content !== buffer && '*'}</code>
               </h2>
             </Box>
           </Toolbar>

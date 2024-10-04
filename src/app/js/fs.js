@@ -14,10 +14,9 @@ export async function callApi({ path, data, api, method }) {
         if (res.success) {
           return res.result;
         }
-        const error = Error(`${method} call to ${apiPath} Failed`, {
+        throw Error(`${method} call to ${apiPath} Failed`, {
           cause: res.result
         });
-        throw Error(res.result);
       });
   } catch (err) {
     const error = Error(`Failed to make ${method} call to ${apiPath}`, {

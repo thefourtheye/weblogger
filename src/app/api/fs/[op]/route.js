@@ -40,13 +40,10 @@ export async function POST(request, { params }) {
   const path = searchParams.get('path');
   const body = await request.json();
   const ctx = { reqId, op, payload: { path, body } };
-  console.log(`FS Operation [${op}]`);
-  console.log(`Context [${ctx}]`);
   switch (op) {
     case 'writeFile':
       return await handleAsyncResponse(ctx, write);
     default:
-      console.log(`Unknown FS Operation [${op}]`);
       return Response.json({
         ctx,
         result: `Unknown FS Operation [${op}]`
