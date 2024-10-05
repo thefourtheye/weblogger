@@ -8,12 +8,18 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import AppBar from '@mui/material/AppBar';
 import { SnackBar, useSnackBar } from './SnackBar';
+import Yaml from 'yaml';
 
 export default function Editor({ workingDir, currentFile }) {
-  const [content, setContent] = useState('');
-  const [buffer, setBuffer] = useState(content);
+  const [post, setPost] = useState({
+    tags: [],
+    post: '',
+    createdAt: 0,
+    modifiedAt: 0
+  });
+  const [buffer, setBuffer] = useState(post.post);
   const [preview, setPreview] = useState(false);
-  const [tags, setTags] = useState([]);
+  const [tags, setTags] = useState(post.tags);
   const {
     isSnackBarOpen,
     snackBarMsg,
@@ -24,25 +30,34 @@ export default function Editor({ workingDir, currentFile }) {
   } = useSnackBar();
   const [hasChanges, setHasChanges] = useState(false);
 
-  function saveBufferToFile(buffer) {
+  function saveInFile() {
+    const updatedPost = {
+      tags,
+      post: buffer,
+      modifiedAt: Date.now(),
+      createdAt: post.createdAt || Date.now()
+    };
     (async () => {
       try {
         await callApi({
           path: currentFile,
-          data: buffer,
+          data: Yaml.stringify(updatedPost),
           method: 'POST',
           api: 'writeFile'
         })
-          .then(() => setContent(buffer))
+          .then(() => {
+            setPost(updatedPost);
+            setTags(tags);
+          })
           .catch((err) => {
             showSnackBar({
-              msg: `Writing [${buffer}] to File ${currentFile} Failed`,
+              msg: `Writing [${updatedPost}] to File ${currentFile} Failed`,
               error: err
             });
           });
       } catch (err) {
         showSnackBar({
-          msg: `Failed Writing [${buffer}] to File ${currentFile}`,
+          msg: `Failed Writing [${updatedPost}] to File ${currentFile}`,
           error: err
         });
       }
@@ -55,7 +70,7 @@ export default function Editor({ workingDir, currentFile }) {
     }
     switch (e.key) {
       case 's':
-        return saveBufferToFile(buffer);
+        return saveInFile();
       case 't':
         return setPreview(!preview);
       default:
@@ -68,19 +83,46 @@ export default function Editor({ workingDir, currentFile }) {
     return function cleanup() {
       document.removeEventListener('keydown', handleKeyDown, false);
     };
-  }, [buffer, preview]);
+  }, [buffer, preview, tags]);
 
   useEffect(() => {
     (async () => {
-      const result = await callApi({ path: currentFile, api: 'readFile' });
-      setContent(result);
-      setBuffer(result);
+      const fileContents = await callApi({
+        path: currentFile,
+        api: 'readFile'
+      });
+      const readPost = fileContents
+        ? Yaml.parse(fileContents)
+        : {
+            post: '',
+            createdAt: 0,
+            modifiedAt: 0,
+            tags: []
+          };
+      setPost(readPost);
+      setBuffer(readPost.post);
+      setTags(readPost.tags);
     })();
   }, [currentFile]);
 
+  function areTagsSame(arr1, arr2) {
+    console.log(arr1, arr2);
+    if (arr1.length !== arr2.length) {
+      return false;
+    }
+    const a1 = [...arr1].sort();
+    const a2 = [...arr2].sort();
+    for (let i = 0; i < arr2.length; i++) {
+      if (a1[i] !== a2[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   function onChange(e) {
     const currentValue = e.target.value;
-    setHasChanges(currentValue !== content);
+    setHasChanges(currentValue !== post.post);
     setBuffer(currentValue);
   }
 
@@ -112,7 +154,9 @@ export default function Editor({ workingDir, currentFile }) {
           <Autocomplete
             multiple
             value={tags}
-            onChange={(e, values, reason) => {
+            onChange={(e, values) => {
+              // TODO Refactor this to be a separate function
+              setHasChanges(!areTagsSame(post.tags, values));
               setTags([...values]);
             }}
             id="tags-filled"

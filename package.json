@@ -22,7 +22,8 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
     "uuid": "^9.0.1",
-    "winston": "^3.13.0"
+    "winston": "^3.13.0",
+    "yaml": "^2.5.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
