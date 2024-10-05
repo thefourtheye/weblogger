@@ -1,7 +1,7 @@
 'use client';
 import { callApi } from 'src/app/js/fs';
 import Box from '@mui/material/Box';
-import { TextField, Toolbar } from '@mui/material';
+import { Autocomplete, Chip, TextField, Toolbar } from '@mui/material';
 import { useEffect, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -9,15 +9,11 @@ import rehypeRaw from 'rehype-raw';
 import AppBar from '@mui/material/AppBar';
 import { SnackBar, useSnackBar } from './SnackBar';
 
-export default function Editor({
-  workingDir,
-  currentFile,
-  setShouldChooseDir,
-  setShouldChooseFile
-}) {
+export default function Editor({ workingDir, currentFile }) {
   const [content, setContent] = useState('');
   const [buffer, setBuffer] = useState(content);
   const [preview, setPreview] = useState(false);
+  const [tags, setTags] = useState([]);
   const {
     isSnackBarOpen,
     snackBarMsg,
@@ -26,6 +22,7 @@ export default function Editor({
     hideSnackBar,
     showSnackBar
   } = useSnackBar();
+  const [hasChanges, setHasChanges] = useState(false);
 
   function saveBufferToFile(buffer) {
     (async () => {
@@ -82,7 +79,9 @@ export default function Editor({
   }, [currentFile]);
 
   function onChange(e) {
-    setBuffer(e.target.value);
+    const currentValue = e.target.value;
+    setHasChanges(currentValue !== content);
+    setBuffer(currentValue);
   }
 
   return (
@@ -104,12 +103,45 @@ export default function Editor({
               <h2>
                 <code>{workingDir}</code>
                 <code>{currentFile.replace(workingDir, '')}</code>
-                <code>{content !== buffer && '*'}</code>
+                {hasChanges && '*'}
               </h2>
             </Box>
           </Toolbar>
         </AppBar>
-        <Box sx={{ flex: '1', overflow: 'auto', padding: '6px' }}>
+        <Box sx={{ border: 0, borderColor: 'red', padding: 1, margin: 0 }}>
+          <Autocomplete
+            multiple
+            value={tags}
+            onChange={(e, values, reason) => {
+              setTags([...values]);
+            }}
+            id="tags-filled"
+            options={['Untagged']} // TODO Load Current set of Tags from File
+            defaultValue={[]}
+            freeSolo
+            renderTags={(values, getTagProps) =>
+              values.map((option, index) => {
+                const { key, ...tagProps } = getTagProps({ index });
+                return (
+                  <Chip
+                    variant="filled"
+                    label={<Box sx={{ fontFamily: 'monospace' }}>{option}</Box>}
+                    key={key}
+                    {...tagProps}
+                  />
+                );
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Tags"
+              />
+            )}
+          />
+        </Box>
+        <Box sx={{ flex: '1', overflow: 'auto', padding: 1 }}>
           <Box
             sx={{
               display: 'flex',
