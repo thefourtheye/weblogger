@@ -13,6 +13,7 @@ import Yaml from 'yaml';
 export default function Editor({ workingDir, currentFile }) {
   const [post, setPost] = useState({
     tags: [],
+    title: '',
     post: '',
     createdAt: 0,
     modifiedAt: 0
@@ -20,6 +21,7 @@ export default function Editor({ workingDir, currentFile }) {
   const [buffer, setBuffer] = useState(post.post);
   const [preview, setPreview] = useState(false);
   const [tags, setTags] = useState(post.tags);
+  const [title, setTitle] = useState(post.title);
   const {
     isSnackBarOpen,
     snackBarMsg,
@@ -33,6 +35,7 @@ export default function Editor({ workingDir, currentFile }) {
   function saveInFile() {
     const updatedPost = {
       tags,
+      title,
       post: buffer,
       modifiedAt: Date.now(),
       createdAt: post.createdAt || Date.now()
@@ -48,6 +51,7 @@ export default function Editor({ workingDir, currentFile }) {
           .then(() => {
             setPost(updatedPost);
             setTags(tags);
+            setTitle(title);
           })
           .catch((err) => {
             showSnackBar({
@@ -83,7 +87,7 @@ export default function Editor({ workingDir, currentFile }) {
     return function cleanup() {
       document.removeEventListener('keydown', handleKeyDown, false);
     };
-  }, [buffer, preview, tags]);
+  }, [buffer, preview, tags, title]);
 
   useEffect(() => {
     (async () => {
@@ -94,6 +98,7 @@ export default function Editor({ workingDir, currentFile }) {
       const readPost = fileContents
         ? Yaml.parse(fileContents)
         : {
+            title: '',
             post: '',
             createdAt: 0,
             modifiedAt: 0,
@@ -102,11 +107,11 @@ export default function Editor({ workingDir, currentFile }) {
       setPost(readPost);
       setBuffer(readPost.post);
       setTags(readPost.tags);
+      setTitle(readPost.title || '');
     })();
   }, [currentFile]);
 
   function areTagsSame(arr1, arr2) {
-    console.log(arr1, arr2);
     if (arr1.length !== arr2.length) {
       return false;
     }
@@ -178,6 +183,7 @@ export default function Editor({ workingDir, currentFile }) {
             }
             renderInput={(params) => (
               <TextField
+                required={true}
                 {...params}
                 variant="outlined"
                 label="Tags"
@@ -185,6 +191,25 @@ export default function Editor({ workingDir, currentFile }) {
             )}
           />
         </Box>
+
+        <Box sx={{ border: 0, borderColor: 'red', padding: 1, margin: 0 }}>
+          <TextField
+            value={title}
+            onChange={(e) => {
+              console.log(e);
+              console.log(e.target);
+              console.log(e.target.value);
+              // TODO Refactor this to be a separate function
+              setHasChanges(title !== e.target.value);
+              setTitle(e.target.value);
+            }}
+            autoFocus={true}
+            label={'Title'}
+            fullWidth={true}
+            required={true}
+          />
+        </Box>
+
         <Box sx={{ flex: '1', overflow: 'auto', padding: 1 }}>
           <Box
             sx={{
