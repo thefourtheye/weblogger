@@ -216,17 +216,26 @@ export default function Editor({ workingDir, currentFile }) {
             />
           </Box>
           <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Chip
-                sx={{ border: 0, fontFamily: 'monospace' }}
-                variant="outlined"
-                label={'Created Time: ' + formatEpochAsDate(post.createdAt)}
-              />
-              <Chip
-                sx={{ border: 0, fontFamily: 'monospace' }}
-                variant="outlined"
-                label={'Modified Time: ' + formatEpochAsDate(post.modifiedAt)}
-              />
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                border: 0,
+                alignItems: 'center'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+                Created
+                <Box sx={{ fontFamily: 'monospace', margin: 1 }}>
+                  {formatEpochAsDate(post.createdAt)}
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+                Modified
+                <Box sx={{ fontFamily: 'monospace', margin: 1 }}>
+                  {formatEpochAsDate(post.modifiedAt)}
+                </Box>
+              </Box>
             </Box>
           </Box>
         </Box>
