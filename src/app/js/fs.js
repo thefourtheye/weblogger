@@ -1,8 +1,14 @@
-export async function callApi({ path, data, api, method }) {
-  const apiPath = `/api/fs/${api}?path=${path || ''}`;
+export async function callApi({ data, api, method, ...args }) {
+  const pathParams = Object.entries(args)
+    .map(([key, value]) => {
+      return key + '=' + value;
+    })
+    .join('&');
+  const apiPath = `/api/fs/${api}?${pathParams}`;
+  const chosenMethod = (method || 'GET').toUpperCase();
   try {
     return await fetch(apiPath, {
-      method: method || 'GET',
+      method: chosenMethod,
       body: data && JSON.stringify(data),
       headers: {
         'Accept': 'application/json',
@@ -14,12 +20,12 @@ export async function callApi({ path, data, api, method }) {
         if (res.success) {
           return res.result;
         }
-        throw Error(`${method} call to ${apiPath} Failed`, {
+        throw Error(`${chosenMethod} call to ${apiPath} Failed`, {
           cause: res.result
         });
       });
   } catch (err) {
-    const error = Error(`Failed to make ${method} call to ${apiPath}`, {
+    const error = Error(`Failed to make ${chosenMethod} call to ${apiPath}`, {
       cause: err
     });
     return Promise.reject(error);

@@ -1,6 +1,7 @@
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import { useState } from 'react';
+import { duration } from '@mui/material';
 
 function getMessage(msg, err) {
   const message = msg || 'Nothing to show here!';
@@ -26,12 +27,19 @@ function getAllCauses(err) {
   return getCauses(err, []);
 }
 
-export function SnackBar({ severity, msg, open, hideSnackBar, snackBarError }) {
+export function SnackBar({
+  duration = 3000,
+  severity,
+  msg,
+  open,
+  hideSnackBar,
+  snackBarError
+}) {
   return (
     <Snackbar
       anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       open={open}
-      autoHideDuration={10000}
+      autoHideDuration={duration}
       onClose={hideSnackBar}
     >
       <Alert
@@ -49,12 +57,14 @@ export function SnackBar({ severity, msg, open, hideSnackBar, snackBarError }) {
 
 export function useSnackBar() {
   const [isSnackBarOpen, setIsSnackBarOpen] = useState(false);
+  const [snackBarAutoHideDuration, setSnackBarAutoHideDuration] = useState(900);
   const [snackBarSeverity, setSnackBarSeverity] = useState('info');
   const [snackBarMsg, setSnackBarMsg] = useState('');
   const [snackBarError, setSnackBarError] = useState();
 
-  function showSnackBar({ severity, msg, error }) {
+  function showSnackBar({ duration = 3000, severity, msg, error }) {
     setIsSnackBarOpen(true);
+    setSnackBarAutoHideDuration(duration);
     setSnackBarSeverity(severity || (error ? 'error' : 'info'));
     setSnackBarMsg(msg);
     setSnackBarError(error);
@@ -62,6 +72,7 @@ export function useSnackBar() {
 
   return {
     isSnackBarOpen,
+    snackBarAutoHideDuration,
     snackBarSeverity,
     snackBarMsg,
     snackBarError,

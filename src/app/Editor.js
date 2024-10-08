@@ -10,7 +10,12 @@ import AppBar from '@mui/material/AppBar';
 import { SnackBar, useSnackBar } from './SnackBar';
 import Yaml from 'yaml';
 
+function formatEpochAsDate(epoch) {
+  return new Date(epoch).toString().slice(0, 24);
+}
+
 export default function Editor({ workingDir, currentFile }) {
+  const [currentFilePath, setCurrentFilePath] = useState(currentFile);
   const [post, setPost] = useState({
     tags: [],
     title: '',
@@ -24,6 +29,7 @@ export default function Editor({ workingDir, currentFile }) {
   const [title, setTitle] = useState(post.title);
   const {
     isSnackBarOpen,
+    snackBarAutoHideDuration,
     snackBarMsg,
     snackBarSeverity,
     snackBarError,
@@ -33,35 +39,38 @@ export default function Editor({ workingDir, currentFile }) {
   const [hasChanges, setHasChanges] = useState(false);
 
   function saveInFile() {
-    const updatedPost = {
-      tags,
-      title,
-      post: buffer,
-      modifiedAt: Date.now(),
-      createdAt: post.createdAt || Date.now()
-    };
     (async () => {
+      const updatedPost = {
+        tags,
+        title,
+        post: buffer,
+        modifiedAt: Date.now(),
+        createdAt: post.createdAt || Date.now()
+      };
       try {
-        await callApi({
-          path: currentFile,
+        const newFilePath = await callApi({
+          path: currentFilePath,
+          title,
           data: Yaml.stringify(updatedPost),
           method: 'POST',
-          api: 'writeFile'
-        })
-          .then(() => {
-            setPost(updatedPost);
-            setTags(tags);
-            setTitle(title);
-          })
-          .catch((err) => {
-            showSnackBar({
-              msg: `Writing [${updatedPost}] to File ${currentFile} Failed`,
-              error: err
-            });
+          api: 'writePost'
+        });
+        if (currentFilePath !== newFilePath) {
+          await callApi({
+            path: currentFilePath,
+            api: 'deleteFile'
           });
+          setCurrentFilePath(newFilePath);
+          showSnackBar({ msg: 'File renamed and Saved', severity: 'warning' });
+        } else {
+          setPost(updatedPost);
+          showSnackBar({ msg: 'Saved' });
+        }
+        localStorage.setItem('currentFile', newFilePath);
+        setHasChanges(false);
       } catch (err) {
         showSnackBar({
-          msg: `Failed Writing [${updatedPost}] to File ${currentFile}`,
+          msg: `Failed Writing [${updatedPost}] to File ${currentFilePath}`,
           error: err
         });
       }
@@ -87,12 +96,12 @@ export default function Editor({ workingDir, currentFile }) {
     return function cleanup() {
       document.removeEventListener('keydown', handleKeyDown, false);
     };
-  }, [buffer, preview, tags, title]);
+  }, [currentFilePath, post, buffer, preview, tags, title]);
 
   useEffect(() => {
     (async () => {
       const fileContents = await callApi({
-        path: currentFile,
+        path: currentFilePath,
         api: 'readFile'
       });
       const readPost = fileContents
@@ -107,9 +116,10 @@ export default function Editor({ workingDir, currentFile }) {
       setPost(readPost);
       setBuffer(readPost.post);
       setTags(readPost.tags);
-      setTitle(readPost.title || '');
+      setTitle(readPost.title);
+      setHasChanges(false);
     })();
-  }, [currentFile]);
+  }, [currentFilePath]);
 
   function areTagsSame(arr1, arr2) {
     if (arr1.length !== arr2.length) {
@@ -149,58 +159,85 @@ export default function Editor({ workingDir, currentFile }) {
             >
               <h2>
                 <code>{workingDir}</code>
-                <code>{currentFile.replace(workingDir, '')}</code>
+                <code>{currentFilePath.replace(workingDir, '')}</code>
                 {hasChanges && '*'}
               </h2>
             </Box>
           </Toolbar>
         </AppBar>
-        <Box sx={{ border: 0, borderColor: 'red', padding: 1, margin: 0 }}>
-          <Autocomplete
-            multiple
-            value={tags}
-            onChange={(e, values) => {
-              // TODO Refactor this to be a separate function
-              setHasChanges(!areTagsSame(post.tags, values));
-              setTags([...values]);
-            }}
-            id="tags-filled"
-            options={['Untagged']} // TODO Load Current set of Tags from File
-            defaultValue={[]}
-            freeSolo
-            renderTags={(values, getTagProps) =>
-              values.map((option, index) => {
-                const { key, ...tagProps } = getTagProps({ index });
-                return (
-                  <Chip
-                    variant="filled"
-                    label={<Box sx={{ fontFamily: 'monospace' }}>{option}</Box>}
-                    key={key}
-                    {...tagProps}
-                  />
-                );
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                required={true}
-                {...params}
+        <Box
+          sx={{
+            border: 0,
+            borderColor: 'red',
+            padding: 1,
+            margin: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            justifyItems: 'space-between',
+            fluxDirection: 'column'
+          }}
+        >
+          <Box sx={{ flex: '1' }}>
+            <Autocomplete
+              multiple
+              value={tags}
+              onChange={(e, values) => {
+                // TODO Refactor this to be a separate function
+                setHasChanges(!areTagsSame(post.tags, values));
+                setTags([...values]);
+              }}
+              id="tags-filled"
+              options={['Untagged']} // TODO Load Current set of Tags from File
+              defaultValue={[]}
+              freeSolo
+              renderTags={(values, getTagProps) =>
+                values.map((option, index) => {
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return (
+                    <Chip
+                      variant="filled"
+                      label={
+                        <Box sx={{ fontFamily: 'monospace' }}>{option}</Box>
+                      }
+                      key={key}
+                      {...tagProps}
+                    />
+                  );
+                })
+              }
+              renderInput={(params) => (
+                <TextField
+                  required={true}
+                  {...params}
+                  variant="outlined"
+                  label="Tags"
+                />
+              )}
+            />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Chip
+                sx={{ border: 0, fontFamily: 'monospace' }}
                 variant="outlined"
-                label="Tags"
+                label={'Created Time: ' + formatEpochAsDate(post.createdAt)}
               />
-            )}
-          />
+              <Chip
+                sx={{ border: 0, fontFamily: 'monospace' }}
+                variant="outlined"
+                label={'Modified Time: ' + formatEpochAsDate(post.modifiedAt)}
+              />
+            </Box>
+          </Box>
         </Box>
 
         <Box sx={{ border: 0, borderColor: 'red', padding: 1, margin: 0 }}>
           <TextField
+            inputProps={{ maxLength: 128 }}
             value={title}
             onChange={(e) => {
-              console.log(e);
-              console.log(e.target);
-              console.log(e.target.value);
               // TODO Refactor this to be a separate function
-              setHasChanges(title !== e.target.value);
+              setHasChanges(post.title !== e.target.value);
               setTitle(e.target.value);
             }}
             autoFocus={true}
@@ -246,6 +283,7 @@ export default function Editor({ workingDir, currentFile }) {
         </Box>
       </Box>
       <SnackBar
+        duration={snackBarAutoHideDuration}
         msg={snackBarMsg}
         severity={snackBarSeverity}
         open={isSnackBarOpen}

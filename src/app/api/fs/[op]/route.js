@@ -1,7 +1,17 @@
-import { access, readdir, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  access,
+  readdir,
+  readFile,
+  stat,
+  writeFile,
+  rename,
+  unlink
+} from 'node:fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'node:fs';
 import logger from '@/app/api/commons/logger';
+import { dirname } from 'path';
+import slugify from 'slugify';
 
 async function handleSyncResponse(ctx, fn) {
   try {
@@ -36,13 +46,17 @@ async function handleAsyncResponse(ctx, fn) {
 export async function POST(request, { params }) {
   const reqId = uuidv4();
   const op = params.op;
-  const searchParams = request.nextUrl.searchParams;
-  const path = searchParams.get('path');
   const body = await request.json();
-  const ctx = { reqId, op, payload: { path, body } };
+  const ctx = {
+    reqId,
+    op,
+    payload: { ...Object.fromEntries(request.nextUrl.searchParams), body }
+  };
   switch (op) {
     case 'writeFile':
       return await handleAsyncResponse(ctx, write);
+    case 'writePost':
+      return await handleAsyncResponse(ctx, writePost);
     default:
       return Response.json({
         ctx,
@@ -54,10 +68,11 @@ export async function POST(request, { params }) {
 export async function GET(request, { params }) {
   const reqId = uuidv4();
   const op = params.op;
-  const searchParams = request.nextUrl.searchParams;
-  const path = searchParams.get('path');
-
-  const ctx = { reqId, op, payload: { path } };
+  const ctx = {
+    reqId,
+    op,
+    payload: { ...Object.fromEntries(request.nextUrl.searchParams) }
+  };
   switch (op) {
     case 'home':
       return handleSyncResponse(ctx, () => require('os').homedir());
@@ -71,8 +86,12 @@ export async function GET(request, { params }) {
       return await handleAsyncResponse(ctx, isFile);
     case 'readFile':
       return await handleAsyncResponse(ctx, read);
+    case 'deleteFile':
+      return await handleAsyncResponse(ctx, deleteFile);
     case 'list':
       return await handleAsyncResponse(ctx, listDir);
+    case 'rename':
+      return await handleAsyncResponse(ctx, renameFile);
     default:
       return Response.json({
         ctx,
@@ -139,4 +158,22 @@ async function read({ path }) {
 
 async function write({ path, body }) {
   return await writeFile(path, body, { encoding: 'utf8' });
+}
+
+async function writePost({ path, title, body }) {
+  const pathWithoutFileName = dirname(path);
+  const fileName = slugify(title) + '.post';
+  await writeFile(pathWithoutFileName + '/' + fileName, body, {
+    encoding: 'utf8',
+    flush: true
+  });
+  return pathWithoutFileName + '/' + fileName;
+}
+
+async function renameFile({ oldPath, newPath }) {
+  return await rename(oldPath, newPath);
+}
+
+async function deleteFile({ path }) {
+  return await unlink(path);
 }
