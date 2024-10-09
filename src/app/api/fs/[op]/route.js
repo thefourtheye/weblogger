@@ -12,18 +12,19 @@ import fs from 'node:fs';
 import logger from '@/app/api/commons/logger';
 import { dirname } from 'path';
 import slugify from 'slugify';
+import Yaml from 'yaml';
 
 async function handleSyncResponse(ctx, fn) {
   try {
     return Response.json({
       ctx,
       success: true,
-      result: fn()
+      result: fn(ctx.payload)
     });
   } catch (err) {
     return Response.json({
       ctx,
-      result: `Operation Failed. Context: [${ctx}], Error: [${err + ' - ' + err.message}]`
+      result: `Operation Failed. Context: [${JSON.stringify(ctx)}], Error: [${err + ' - ' + err.message}]`
     });
   }
 }
@@ -38,7 +39,7 @@ async function handleAsyncResponse(ctx, fn) {
   } catch (err) {
     return Response.json({
       ctx,
-      result: `Operation Failed. Context: [${ctx}], Error: [${err + ' - ' + err.message}]`
+      result: `Operation Failed. Context: [${JSON.stringify(ctx)}], Error: [${err + ' - ' + err.message}]`
     });
   }
 }
@@ -76,6 +77,10 @@ export async function GET(request, { params }) {
   switch (op) {
     case 'home':
       return handleSyncResponse(ctx, () => require('os').homedir());
+    case 'slugify':
+      return handleSyncResponse(ctx, ({ value }) => _slugify(value));
+    case 'dirOfFile':
+      return await handleAsyncResponse(ctx, getDirOfFile);
     case 'isReadable':
       return await handleAsyncResponse(ctx, isReadable);
     case 'isWritable':
@@ -119,11 +124,19 @@ async function getStat({ path }) {
 }
 
 async function isDir({ path }) {
-  return (await getStat({ path })).isDirectory();
+  try {
+    return (await getStat({ path })).isDirectory();
+  } catch (err) {
+    return Promise.resolve(false);
+  }
 }
 
 async function isFile({ path }) {
-  return (await getStat({ path })).isFile();
+  try {
+    return (await getStat({ path })).isFile();
+  } catch (err) {
+    return Promise.resolve(false);
+  }
 }
 
 async function listDir({ path }) {
@@ -160,10 +173,11 @@ async function write({ path, body }) {
   return await writeFile(path, body, { encoding: 'utf8' });
 }
 
-async function writePost({ path, title, body }) {
+async function writePost({ path, body }) {
   const pathWithoutFileName = dirname(path);
-  const fileName = slugify(title) + '.post';
-  await writeFile(pathWithoutFileName + '/' + fileName, body, {
+  const fileName = _slugify(body.title) + '.post';
+  const yamilifiedBody = Yaml.stringify(body);
+  await writeFile(pathWithoutFileName + '/' + fileName, yamilifiedBody, {
     encoding: 'utf8',
     flush: true
   });
@@ -176,4 +190,15 @@ async function renameFile({ oldPath, newPath }) {
 
 async function deleteFile({ path }) {
   return await unlink(path);
+}
+
+async function getDirOfFile({ path }) {
+  if (await isDir({ path })) {
+    return path;
+  }
+  return dirname(path);
+}
+
+function _slugify(title) {
+  return slugify(title);
 }

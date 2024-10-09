@@ -1,31 +1,70 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import { Typography } from '@mui/material';
+import { TextField, Typography } from '@mui/material';
+
+import { callApi } from 'src/app/js/fs';
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
 
 export default function FileCreator({
   workingDir,
-  selectedDir,
-  onCreation,
-  onCancel
+  highlightedFile,
+  setSelectedFile
 }) {
-  const [dirToCreateFile, setDirToCreateFile] = useState(
-    workingDir + '/' + selectedDir
-  );
+  const [title, setTitle] = React.useState('New Post - ' + getRandomInt(10000));
+  const [slugifiedName, setSlugifiedName] = React.useState('');
+  const [currentDir, setCurrentDir] = React.useState('');
 
-  function onSubmit(e) {
-    if (selectedFile) {
-      onSelection(workingDir + selectedFile);
-    }
-    e.preventDefault();
+  useEffect(() => {
+    (async function () {
+      const dirOfHighlightedFile = await callApi({
+        api: 'dirOfFile',
+        path: highlightedFile
+      });
+      setCurrentDir(dirOfHighlightedFile.replace(workingDir, ''));
+    })();
+  }, [highlightedFile]);
+
+  useEffect(() => {
+    (async function () {
+      const name = await callApi({
+        api: 'slugify',
+        value: title
+      });
+      setSlugifiedName(name);
+    })();
+  }, [title]);
+
+  function onSubmit() {
+    const selectedFilePath = currentDir + '/' + slugifiedName + '.post';
+    (async function () {
+      const time = Date.now();
+      await callApi({
+        api: 'writePost',
+        path: workingDir + selectedFilePath,
+        method: 'POST',
+        data: {
+          title,
+          post: '## Please Start Here',
+          tags: ['General'],
+          createdAt: time,
+          modifiedAt: time
+        }
+      });
+      setSelectedFile({
+        filePath: selectedFilePath,
+        title
+      });
+    })();
   }
-
-  function createFile() {}
 
   return (
     <Dialog
@@ -37,16 +76,50 @@ export default function FileCreator({
       <DialogTitle>File Creator</DialogTitle>
       <DialogContent dividers>
         <Box>
-          <Box sx={{ flex: '1 1 auto' }}></Box>
+          <Box sx={{ flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+              Working Directory
+              <Box sx={{ fontFamily: 'monospace', margin: 1 }}>
+                {workingDir}
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+              Current Directory
+              <Box sx={{ fontFamily: 'monospace', margin: 1 }}>
+                {currentDir}
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+              Post Title
+              <Box sx={{ fontFamily: 'monospace', padding: 1 }}>
+                <TextField
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                  }}
+                ></TextField>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ flex: '1 1 auto' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', border: 0 }}>
+              File Name
+              <Box sx={{ fontFamily: 'monospace', margin: 1 }}>
+                {workingDir + currentDir + '/' + slugifiedName + '.post'}
+              </Box>
+            </Box>
+          </Box>
         </Box>
       </DialogContent>
       <DialogActions>
-        {selectedFile && (
-          <Typography>Selected File is {selectedFile}</Typography>
-        )}
-        <Button onClick={createFile}>Create Post File</Button>
         <Button onClick={onSubmit}>Open</Button>
-        {selectedFile && <Button onClick={onSubmit}>Cancel</Button>}
+        <Button onClick={() => setSelectedFile({ filePath: highlightedFile })}>
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   );

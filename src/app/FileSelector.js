@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { callApi } from 'src/app/js/fs';
 import FileBrowser from '@/app/FileBrowser';
 
-export default function FileSelector({ currentFile, workingDir, onSelection }) {
+export default function FileSelector({
+  currentFile,
+  workingDir,
+  onSelection,
+  shouldCreateNewFile
+}) {
   const [files, setFiles] = useState([]);
   useEffect(() => {
     (async () => {
@@ -15,6 +20,7 @@ export default function FileSelector({ currentFile, workingDir, onSelection }) {
       currentFile={currentFile}
       workingDir={workingDir}
       files={files}
+      shouldCreateNewFile={shouldCreateNewFile}
       onSelection={onSelection}
     ></FileBrowser>
   );

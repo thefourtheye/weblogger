@@ -13,6 +13,7 @@ import Box from '@mui/material/Box';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import { Typography } from '@mui/material';
+import FileCreator from '@/app/FileCreator';
 
 const CustomTreeItem = styled(TreeItem)(({ theme }) => ({
   [`& .${treeItemClasses.content}`]: {
@@ -55,10 +56,14 @@ function createTreeItem(files) {
 export default function FileBrowser({
   currentFile,
   workingDir,
+  shouldCreateNewFile,
   files,
   onSelection
 }) {
-  const [selectedFile, setSelectedFile] = useState(
+  const [showFileCreator, setShowFileCreator] = useState(shouldCreateNewFile);
+  const [highlightedFile, setHighlightedFile] = useState(currentFile);
+  const [postTitle, setPostTitle] = useState('');
+  const [selectedFile, reallySetSelectedFile] = useState(
     (currentFile || '').replace(workingDir, '')
   );
   const [expandedItems, setExpandedItems] = useState(
@@ -74,32 +79,53 @@ export default function FileBrowser({
       .map((path) => slashTrimmer(path))
   );
 
+  function setSelectedFile(file) {
+    reallySetSelectedFile(file.filePath);
+    setPostTitle(file.title);
+    setShowFileCreator(false);
+  }
+
   async function isItemAFile(itemId) {
     return await callApi({ path: itemId, api: 'isFile' });
   }
 
   async function onItemSelectionToggle(e, itemId, isSelected) {
     if (isSelected && (await isItemAFile(itemId))) {
-      setSelectedFile(itemId.replace(workingDir, ''));
+      setSelectedFile({
+        filePath: itemId.replace(workingDir, '')
+      });
+    }
+    if (isSelected) {
+      setHighlightedFile(itemId.replace(workingDir, ''));
     }
   }
 
-  function onSubmit(e) {
+  function onSubmit() {
     if (selectedFile) {
-      onSelection(workingDir + selectedFile);
+      onSelection({
+        filePath: workingDir + selectedFile,
+        title: postTitle
+      });
     }
-    e.preventDefault();
   }
 
-  function createFile() {}
-
-  function onCancel() {
-    onSelection(workingDir + selectedFile);
+  function createFile() {
+    setShowFileCreator(true);
   }
 
-  const handleExpandedItemsChange = (event, itemIds) => {
+  function handleExpandedItemsChange(event, itemIds) {
     setExpandedItems(itemIds);
-  };
+  }
+
+  if (showFileCreator) {
+    return (
+      <FileCreator
+        highlightedFile={highlightedFile}
+        workingDir={workingDir}
+        setSelectedFile={setSelectedFile}
+      />
+    );
+  }
   return (
     <Dialog
       sx={{ '& .MuiDialog-paper': { width: '100%' } }}
@@ -138,7 +164,7 @@ export default function FileBrowser({
         {selectedFile && (
           <Typography>Selected File is {selectedFile}</Typography>
         )}
-        <Button onClick={createFile}>Create Post File</Button>
+        <Button onClick={createFile}>Create New Post</Button>
         <Button onClick={onSubmit}>Open</Button>
         {selectedFile && <Button onClick={onSubmit}>Cancel</Button>}
       </DialogActions>

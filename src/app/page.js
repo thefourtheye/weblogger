@@ -9,15 +9,20 @@ export default function Home() {
   const [currentFile, setCurrentFileActually] = useState('');
   const [shouldChooseFile, setShouldChooseFile] = useState(false);
   const [shouldChooseDir, setShouldChooseDir] = useState(false);
+  const [shouldCreateNewFile, setShouldCreateNewFile] = useState(false);
+  const [initialTitleInEditor, setInitialTitleInEditor] = useState('');
 
   function setCurrentFile(file) {
-    setCurrentFileActually(file);
     setShouldChooseDir(false);
     setShouldChooseFile(false);
+    setShouldCreateNewFile(false);
+    setCurrentFileActually(file.filePath);
+    setInitialTitleInEditor(file.title);
   }
 
   function setWorkingDir(dir) {
     setShouldChooseDir(false);
+    setShouldCreateNewFile(false);
     setShouldChooseFile(true);
     setWorkingDirActually(dir);
   }
@@ -30,7 +35,9 @@ export default function Home() {
     }
     const currentFileFromLocalStorage = localStorage.getItem('currentFile');
     if (currentFileFromLocalStorage) {
-      setCurrentFile(currentFileFromLocalStorage);
+      setCurrentFile({
+        filePath: currentFileFromLocalStorage
+      });
     }
   }, [currentFile]);
 
@@ -67,18 +74,21 @@ export default function Home() {
         onSelection={setWorkingDir}
       ></WorkingDirectorySelector>
     )) ||
-    ((!currentFile || shouldChooseFile) && (
+    ((!currentFile || shouldChooseFile || shouldCreateNewFile) && (
       <FileSelector
         workingDir={workingDir}
         currentFile={currentFile}
+        shouldCreateNewFile={shouldCreateNewFile}
         onSelection={setCurrentFile}
       ></FileSelector>
     )) || (
       <Editor
+        initialTitle={initialTitleInEditor}
         workingDir={workingDir}
         currentFile={currentFile}
         setShouldChooseDir={setShouldChooseDir}
         setShouldChooseFile={setShouldChooseFile}
+        setShouldCreateNewFile={setShouldCreateNewFile}
       ></Editor>
     )
   );

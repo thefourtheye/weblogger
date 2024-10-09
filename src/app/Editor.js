@@ -2,7 +2,7 @@
 import { callApi } from 'src/app/js/fs';
 import Box from '@mui/material/Box';
 import { Autocomplete, Chip, TextField, Toolbar } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -14,14 +14,33 @@ function formatEpochAsDate(epoch) {
   return new Date(epoch).toString().slice(0, 24);
 }
 
-export default function Editor({ workingDir, currentFile }) {
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
+
+function debounce(func, timeout = 500) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      func.apply(this, args);
+    }, timeout);
+  };
+}
+
+export default function Editor({
+  initialTitle,
+  workingDir,
+  currentFile,
+  setShouldCreateNewFile
+}) {
   const [currentFilePath, setCurrentFilePath] = useState(currentFile);
   const [post, setPost] = useState({
-    tags: [],
-    title: '',
+    tags: ['General'],
+    title: initialTitle || '',
     post: '',
-    createdAt: 0,
-    modifiedAt: 0
+    createdAt: Date.now(),
+    modifiedAt: Date.now()
   });
   const [buffer, setBuffer] = useState(post.post);
   const [preview, setPreview] = useState(false);
@@ -37,9 +56,12 @@ export default function Editor({ workingDir, currentFile }) {
     showSnackBar
   } = useSnackBar();
   const [hasChanges, setHasChanges] = useState(false);
+  const titleRef = useRef(title);
+
+  titleRef.current = title;
 
   function saveInFile() {
-    (async () => {
+    return (async () => {
       const updatedPost = {
         tags,
         title,
@@ -49,17 +71,22 @@ export default function Editor({ workingDir, currentFile }) {
       };
       try {
         const newFilePath = await callApi({
-          path: currentFilePath,
-          title,
-          data: Yaml.stringify(updatedPost),
           method: 'POST',
-          api: 'writePost'
+          api: 'writePost',
+          path: currentFilePath,
+          data: updatedPost
         });
         if (currentFilePath !== newFilePath) {
-          await callApi({
+          const isFile = await callApi({
             path: currentFilePath,
-            api: 'deleteFile'
+            api: 'isFile'
           });
+          if (isFile) {
+            await callApi({
+              path: currentFilePath,
+              api: 'deleteFile'
+            });
+          }
           setCurrentFilePath(newFilePath);
           showSnackBar({ msg: 'File renamed and Saved', severity: 'warning' });
         } else {
@@ -86,6 +113,8 @@ export default function Editor({ workingDir, currentFile }) {
         return saveInFile();
       case 't':
         return setPreview(!preview);
+      case 'n':
+        return saveInFile().then(() => setShouldCreateNewFile(true));
       default:
         return;
     }
@@ -99,25 +128,51 @@ export default function Editor({ workingDir, currentFile }) {
   }, [currentFilePath, post, buffer, preview, tags, title]);
 
   useEffect(() => {
-    (async () => {
-      const fileContents = await callApi({
-        path: currentFilePath,
-        api: 'readFile'
+    async function fileNameChanger(path, currentTitle) {
+      const slugifiedName = await callApi({
+        value: currentTitle,
+        api: 'slugify'
       });
+      const dirOfFile = await callApi({
+        path: path,
+        api: 'dirOfFile'
+      });
+
+      if (currentTitle === titleRef.current) {
+        setCurrentFilePath(dirOfFile + '/' + slugifiedName + '.post');
+        setHasChanges(true);
+      }
+    }
+
+    (async function () {
+      await debounce(fileNameChanger, 500)(currentFilePath, title);
+    })();
+  }, [title]);
+
+  useEffect(() => {
+    (async () => {
+      let fileContents;
+      try {
+        fileContents = await callApi({
+          path: currentFilePath,
+          api: 'readFile'
+        });
+      } catch (e) {}
+      const time = new Date().getMilliseconds();
       const readPost = fileContents
         ? Yaml.parse(fileContents)
         : {
-            title: '',
-            post: '',
-            createdAt: 0,
-            modifiedAt: 0,
-            tags: []
+            title: title || 'New Post - ' + getRandomInt(10000),
+            post: buffer || '',
+            createdAt: post.createdAt || time,
+            modifiedAt: post.modifiedAt || time,
+            tags
           };
       setPost(readPost);
       setBuffer(readPost.post);
       setTags(readPost.tags);
       setTitle(readPost.title);
-      setHasChanges(false);
+      setHasChanges(!fileContents);
     })();
   }, [currentFilePath]);
 
@@ -265,6 +320,8 @@ export default function Editor({ workingDir, currentFile }) {
               columnGap: '15px'
             }}
           >
+            {/* TODO Rethink how to show preview and editor on larger screens
+            together. viewport size guides of MUI perhaps? */}
             {!preview && (
               <Box sx={{ flex: '3', overflow: 'auto' }}>
                 <TextField
